@@ -340,28 +340,6 @@ pub fn verify_proof(
         return Err(ProofError::UnsupportedSighashType(i));
     }
 
-    let serialized_tx = serialize(&tx);
-
-    let challenge_input = psbt.inputs.get(0)
-        .ok_or(ProofError::WrongNumberOfInputs)?;
-
-    // Verify the challenge input
-    if let Some(utxo) = &challenge_input.witness_utxo {
-        if let Err(err) = bitcoinconsensus::verify(
-            utxo.script_pubkey.to_bytes().as_slice(),
-            utxo.value,
-            &serialized_tx,
-            0,
-        ) {
-            return Err(ProofError::SignatureValidation(0, format!("{:?}", err)));
-        }
-    } else {
-        return Err(ProofError::SignatureValidation(
-            0,
-            "witness_utxo not found for challenge input".to_string(),
-        ));
-    }
-
     tx.verify_reserve(message, |search_outpoint|
         outpoints
             .iter()
