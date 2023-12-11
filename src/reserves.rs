@@ -38,7 +38,7 @@ pub const PSBT_IN_POR_COMMITMENT: u8 = 0x09;
 /// The API for proof of reserves
 pub trait ProofOfReserves {
     /// Create a proof for all spendable UTXOs in a wallet
-    fn create_proof(&self, message: &str) -> Result<PSBT, ProofError>;
+    fn create_proof(&self, message: &str, value: Option<u64>) -> Result<PSBT, ProofError>;
 
     /// Make sure this is a proof, and not a spendable transaction.
     /// Make sure the proof is valid.
@@ -105,7 +105,7 @@ impl<D> ProofOfReserves for Wallet<D>
 where
     D: BatchDatabase,
 {
-    fn create_proof(&self, message: &str) -> Result<PSBT, ProofError> {
+    fn create_proof(&self, message: &str, value: Option<u64>) -> Result<PSBT, ProofError> {
         if message.is_empty() {
             return Err(ProofError::ChallengeInputMismatch);
         }
@@ -134,14 +134,34 @@ where
 
         let mut builder = self.build_tx();
         builder
-            .drain_wallet()
             .add_foreign_utxo(challenge_txin.previous_output, challenge_psbt_inp, 42)?
             .fee_absolute(0)
             .only_witness_utxo()
             .current_height(0)
-            .drain_to(out_script_unspendable)
             .ordering(TxOrdering::Untouched);
-        let (psbt, _details) = builder.finish().map_err(ProofError::BdkError)?;
+
+        let psbt = if let Some(value) = value {
+            builder.add_recipient(out_script_unspendable, value);
+
+            let (mut psbt, _details) = builder.finish().map_err(ProofError::BdkError)?;
+
+            for i in 1..psbt.unsigned_tx.output.len() {
+                psbt.unsigned_tx.output[0].value += psbt.unsigned_tx.output[i].value;
+            }
+
+            psbt.unsigned_tx.output.truncate(1);
+            psbt.outputs.truncate(1);
+
+            psbt
+        } else {
+            builder
+                .drain_wallet()
+                .drain_to(out_script_unspendable);
+
+            let (psbt, _details) = builder.finish().map_err(ProofError::BdkError)?;
+
+            psbt
+        };
 
         Ok(psbt)
     }
@@ -377,7 +397,7 @@ mod test {
         let (wallet, _, _) = get_funded_wallet(descriptor);
 
         let message = "This belongs to me.";
-        let psbt = wallet.create_proof(message).unwrap();
+        let psbt = wallet.create_proof(message, None).unwrap();
         let psbt_ser = serialize(&psbt);
         let psbt_b64 = Base64::encode_string(&psbt_ser);
 
@@ -395,7 +415,7 @@ mod test {
         let (wallet, _, _) = get_funded_wallet(descriptor);
 
         let message = "This belongs to me.";
-        let _psbt = wallet.create_proof(message).unwrap();
+        let _psbt = wallet.create_proof(message, None).unwrap();
     }
 
     #[test]
@@ -405,7 +425,7 @@ mod test {
         let (wallet, _, _) = get_funded_wallet(descriptor);
 
         let message = "";
-        let _psbt = wallet.create_proof(message).unwrap();
+        let _psbt = wallet.create_proof(message, None).unwrap();
     }
 
     fn get_signed_proof() -> PSBT {

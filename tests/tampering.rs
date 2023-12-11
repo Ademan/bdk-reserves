@@ -11,7 +11,7 @@ fn tampered_proof_message() {
     let balance = wallet.get_balance().unwrap();
 
     let message_alice = "This belongs to Alice.";
-    let mut psbt_alice = wallet.create_proof(message_alice).unwrap();
+    let mut psbt_alice = wallet.create_proof(message_alice, None).unwrap();
 
     let signopt = SignOptions {
         trust_witness_utxo: true,
@@ -26,7 +26,7 @@ fn tampered_proof_message() {
 
     // change the message
     let message_bob = "This belongs to Bob.";
-    let psbt_bob = wallet.create_proof(message_bob).unwrap();
+    let psbt_bob = wallet.create_proof(message_bob, None).unwrap();
     psbt_alice.unsigned_tx.input[0].previous_output = psbt_bob.unsigned_tx.input[0].previous_output;
     psbt_alice.inputs[0].witness_utxo = psbt_bob.inputs[0].witness_utxo.clone();
 
@@ -44,7 +44,7 @@ fn tampered_proof_sighash_tx() {
     let (wallet, _, _) = get_funded_wallet(descriptor);
 
     let message = "This belongs to Alice.";
-    let mut psbt = wallet.create_proof(message).unwrap();
+    let mut psbt = wallet.create_proof(message, None).unwrap();
 
     let signopt = SignOptions {
         trust_witness_utxo: true,
@@ -67,7 +67,7 @@ fn tampered_proof_miner_fee() {
     let (wallet, _, _) = get_funded_wallet(descriptor);
 
     let message = "This belongs to Alice.";
-    let mut psbt = wallet.create_proof(message).unwrap();
+    let mut psbt = wallet.create_proof(message, None).unwrap();
 
     let signopt = SignOptions {
         trust_witness_utxo: true,

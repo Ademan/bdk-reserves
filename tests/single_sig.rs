@@ -12,7 +12,7 @@ fn test_proof(#[case] descriptor: &'static str) -> Result<(), ProofError> {
     let balance = wallet.get_balance()?;
 
     let message = "This belongs to me.";
-    let mut psbt = wallet.create_proof(message)?;
+    let mut psbt = wallet.create_proof(message, None)?;
     let num_inp = psbt.inputs.len();
     assert!(
         num_inp > 1,

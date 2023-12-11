@@ -58,7 +58,7 @@ fn unconfirmed() -> Result<(), ProofError> {
     assert_ne!(balance, new_balance);
 
     let message = "This belongs to me.";
-    let mut psbt = wallet.create_proof(message)?;
+    let mut psbt = wallet.create_proof(message, None)?;
     let finalized = wallet.sign(&mut psbt, signopts)?;
     assert!(finalized);
 
@@ -117,7 +117,7 @@ fn confirmed() {
     assert_ne!(balance, new_balance);
 
     let message = "This belongs to me.";
-    let mut psbt = wallet.create_proof(message).unwrap();
+    let mut psbt = wallet.create_proof(message, None).unwrap();
     let finalized = wallet.sign(&mut psbt, signopts).unwrap();
     assert!(finalized);
 

@@ -106,7 +106,7 @@ fn test_proof_multisig(
     });
 
     let message = "All my precious coins";
-    let mut psbt = wallets[2].create_proof(message)?;
+    let mut psbt = wallets[2].create_proof(message, None)?;
     let num_inp = psbt.inputs.len();
     assert!(
         num_inp > 1,
