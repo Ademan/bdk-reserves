@@ -24,9 +24,8 @@ use bdk::bitcoin::blockdata::transaction::{EcdsaSighashType, OutPoint, TxIn, TxO
 use bdk::bitcoin::consensus::encode::serialize;
 use bdk::bitcoin::hash_types::{PubkeyHash, Txid};
 use bdk::bitcoin::hashes::{hash160, sha256d, Hash};
-use bdk::bitcoin::util::address::Payload;
 use bdk::bitcoin::util::psbt::{Input, PartiallySignedTransaction as PSBT};
-use bdk::bitcoin::{Address, Network, Sequence};
+use bdk::bitcoin::Sequence;
 use bdk::database::BatchDatabase;
 use bdk::wallet::tx_builder::TxOrdering;
 use bdk::wallet::Wallet;
@@ -119,11 +118,7 @@ where
         };
 
         let pkh = PubkeyHash::from_hash(hash160::Hash::hash(&[0]));
-        let out_script_unspendable = Address {
-            payload: Payload::PubkeyHash(pkh),
-            network: self.network(),
-        }
-        .script_pubkey();
+        let out_script_unspendable = Script::new_p2pkh(&pkh);
 
         let mut builder = self.build_tx();
         builder
@@ -177,7 +172,7 @@ where
             .map(|(utxo, _)| (utxo.outpoint, utxo.txout.clone()))
             .collect();
 
-        verify_proof(psbt, message, outpoints, self.network())
+        verify_proof(psbt, message, outpoints)
     }
 }
 
@@ -192,7 +187,6 @@ pub fn verify_proof(
     psbt: &PSBT,
     message: &str,
     outpoints: Vec<(OutPoint, TxOut)>,
-    network: Network,
 ) -> Result<u64, ProofError> {
     let tx = psbt.clone().extract_tx();
 
@@ -303,11 +297,8 @@ pub fn verify_proof(
 
     // verify the unspendable output
     let pkh = PubkeyHash::from_hash(hash160::Hash::hash(&[0]));
-    let out_script_unspendable = Address {
-        payload: Payload::PubkeyHash(pkh),
-        network,
-    }
-    .script_pubkey();
+    let out_script_unspendable = Script::new_p2pkh(&pkh);
+
     if tx.output[0].script_pubkey != out_script_unspendable {
         return Err(ProofError::InvalidOutput);
     }
@@ -336,7 +327,6 @@ mod test {
     use super::*;
     use base64ct::{Base64, Encoding};
     use bdk::bitcoin::consensus::encode::deserialize;
-    use bdk::bitcoin::{Address, Network};
     use bdk::wallet::get_funded_wallet;
 
     #[test]
@@ -427,7 +417,7 @@ mod test {
             .iter()
             .map(|utxo| (utxo.outpoint, utxo.txout.clone()))
             .collect();
-        let spendable = verify_proof(&psbt, message, outpoints, Network::Testnet).unwrap();
+        let spendable = verify_proof(&psbt, message, outpoints).unwrap();
 
         assert_eq!(spendable, 50_000);
     }
@@ -508,11 +498,7 @@ mod test {
         let mut psbt = get_signed_proof();
 
         let pkh = PubkeyHash::from_hash(hash160::Hash::hash(&[0, 1, 2, 3]));
-        let out_script_unspendable = Address {
-            payload: Payload::PubkeyHash(pkh),
-            network: Network::Testnet,
-        }
-        .script_pubkey();
+        let out_script_unspendable = Script::new_p2pkh(&pkh);
         psbt.unsigned_tx.output[0].script_pubkey = out_script_unspendable;
 
         wallet.verify_proof(&psbt, message, None).unwrap();
