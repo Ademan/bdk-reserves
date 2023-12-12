@@ -65,8 +65,6 @@ pub enum ProofError {
     WrongNumberOfOutputs,
     /// Challenge input does not match
     ChallengeInputMismatch,
-    /// Found an input other than the challenge which is not spendable. Holds the position of the input.
-    NonSpendableInput(usize),
     /// Found an input that has no signature at position
     NotSignedInput(usize),
     /// Found an input with an unsupported SIGHASH type at position
@@ -234,7 +232,7 @@ impl ReserveProof for Transaction {
             .map(|(i, input)|
                 f(&input.previous_output)
                     .map(|txout| (i, txout))
-                    .ok_or(ProofError::NonSpendableInput(i))
+                    .ok_or(ProofError::OutpointNotFound(i))
             )
             .collect::<Result<_, ProofError>>()?;
 
@@ -450,7 +448,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "NonSpendableInput")]
+    #[should_panic(expected = "OutpointNotFound")]
     fn verify_internal_90() {
         let descriptor = "wpkh(cVpPVruEDdmutPzisEsYvtST1usBR3ntr8pXSyt6D2YYqXRyPcFW)";
         let (wallet, _, _) = get_funded_wallet(descriptor);

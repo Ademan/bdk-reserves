@@ -73,7 +73,7 @@ fn unconfirmed() -> Result<(), ProofError> {
 }
 
 #[test]
-#[should_panic(expected = "NonSpendableInput")]
+#[should_panic(expected = "OutpointNotFound")]
 fn confirmed() {
     let wallet = construct_wallet(
         "wpkh(cTTgG6x13nQjAeECaCaDrjrUdcjReZBGspcmNavsnSRyXq7zXT7r)",
