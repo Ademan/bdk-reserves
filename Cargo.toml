@@ -17,5 +17,5 @@ log = "^0.4"
 [dev-dependencies]
 rstest = "^0.11"
 bdk-testutils = "^0.4"
-bdk = { version = "0.28", default-features = true }
+bdk = { version = "0.28", default-features = false, features = ["std", "electrum"] }
 electrsd = { version = "0.21", features = ["bitcoind_22_0", "electrs_0_9_1"] }
