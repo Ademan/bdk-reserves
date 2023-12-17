@@ -24,6 +24,7 @@ use bdk::bitcoin::blockdata::transaction::{EcdsaSighashType, OutPoint, TxIn, TxO
 use bdk::bitcoin::consensus::encode::serialize;
 use bdk::bitcoin::hash_types::{PubkeyHash, Txid};
 use bdk::bitcoin::hashes::{hash160, sha256, Hash};
+use bdk::bitcoin::psbt::Output;
 use bdk::bitcoin::util::psbt::{raw::Key, Input, PartiallySignedTransaction as PSBT};
 use bdk::bitcoin::{Network, Sequence, Transaction};
 use bdk::database::BatchDatabase;
@@ -311,6 +312,78 @@ impl ReserveProof for Transaction {
         }
 
         Ok(())
+    }
+}
+
+/// Proof creation error
+#[derive(Debug)]
+pub enum IntoProofError {
+    MissingFundingInformation(usize),
+}
+
+/// API to create reserve proof PSBTs
+pub trait IntoProof {
+    /// Given a challenge message, convert into a reserve proof PSBT
+    fn into_proof(self, message: &str) -> Result<PSBT, IntoProofError>;
+}
+
+impl IntoProof for PSBT {
+    fn into_proof(mut self, message: &str) -> Result<PSBT, IntoProofError> {
+        // Calculate total value of PSBT inputs
+        let total_value = self.iter_funding_utxos()
+            .enumerate()
+            .fold(Ok(0), |acc, (i, txout)| match (acc, txout) {
+                (Ok(partial_sum), Ok(txout)) => {
+                    Ok(partial_sum + txout.value)
+                },
+                (Ok(_partial_sum), Err(e)) => {
+                    Err((i, e))
+                },
+                (Err((i, e)), _) => {
+                    Err((i, e))
+                },
+            })
+            .map_err(|(i, _e)| IntoProofError::MissingFundingInformation(i))?;
+
+        let challenge_key = Key {
+            type_value: PSBT_IN_POR_COMMITMENT,
+            key: Vec::new(),
+        };
+
+        let mut unknown_psbt_keys: BTreeMap<Key, Vec<u8>> = BTreeMap::new();
+        unknown_psbt_keys.insert(challenge_key, message.as_bytes().into());
+
+        let challenge_psbt_input = Input {
+            witness_utxo: Some(TxOut {
+                value: 0,
+                script_pubkey: Builder::new().push_opcode(opcodes::OP_TRUE).into_script(),
+            }),
+            final_script_sig: Some(Script::default()), /* "finalize" the input with an empty scriptSig */
+
+            // Include PSBT_IN_POR_COMMITMENT for external signers
+            unknown: unknown_psbt_keys,
+            ..Default::default()
+        };
+
+        // Insert the challenge input to make this a bip-0127 reserve proof
+        self.unsigned_tx.input.insert(0, challenge_txin(message));
+        self.inputs.insert(0, challenge_psbt_input);
+
+        let pkh = PubkeyHash::from_hash(hash160::Hash::hash(&[0]));
+        let out_script_unspendable = Script::new_p2pkh(&pkh);
+
+        // Consolidate all outputs into a single output equal to exactly
+        // the sum of the inputs, per bip-0127
+        self.outputs.clear();
+        self.outputs.insert(0, Output::default());
+
+        self.unsigned_tx.output.clear();
+        self.unsigned_tx.output.insert(0, TxOut {
+            value: total_value,
+            script_pubkey: out_script_unspendable,
+        });
+
+        Ok(self)
     }
 }
 
