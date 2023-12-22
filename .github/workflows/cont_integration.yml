@@ -43,8 +43,10 @@ jobs:
           cargo update -p webpki:0.22.4 --precise 0.22.0
           cargo update -p rustls:0.20.9 --precise 0.20.8
           cargo update -p sct:0.7.1 --precise 0.7.0
-          cargo update -p tokio:1.35.0 --precise 1.29.1
+          cargo update -p tokio:1.35.1 --precise 1.29.1
           cargo update -p byteorder:1.5.0 --precise 1.4.3
+          cargo update -p crossbeam-epoch:0.9.16 --precise 0.9.15
+          cargo update -p crossbeam-utils:0.8.17 --precise 0.8.16
       - name: Build
         run: cargo build
       - name: Clippy
