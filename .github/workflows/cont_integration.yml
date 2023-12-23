@@ -47,6 +47,9 @@ jobs:
           cargo update -p byteorder:1.5.0 --precise 1.4.3
           cargo update -p crossbeam-epoch:0.9.16 --precise 0.9.15
           cargo update -p crossbeam-utils:0.8.17 --precise 0.8.16
+        if: matrix.rust == '1.65.0'
+        run: |
+          cargo update -p home:0.5.9 --precise 0.5.8
       - name: Build
         run: cargo build
       - name: Clippy
